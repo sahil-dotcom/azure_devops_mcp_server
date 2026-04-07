@@ -1,6 +1,12 @@
-'''Error handling helpers for Azure Devops API responses.'''
+"""
+Error handling helpers for Azure DevOps API responses.
+
+This module provides utilities for logging and returning user-friendly error messages
+from Azure DevOps API exceptions.
+"""
 
 import logging
+
 import httpx
 
 logger = logging.getLogger(__name__)
@@ -8,35 +14,33 @@ logger = logging.getLogger(__name__)
 _STATUS_MESSAGES: dict[int, str] = {
     400: "Bad Request - The request was invalid or cannot be served.",
     401: "Authentication failed - check your credentials.",
-    403: (
-        "Permission denied - you do not have access to this resource. "
-    ),
+    403: ("Permission denied - you do not have access to this resource. "),
     404: "Resource not found - Verify the ID or name is correct.",
     409: "Conflict - The resource may have been modified.",
     429: "Rate limit exceeded - Too many requests. Please retry later.",
 }
 
+
 def handle_api_error(e: Exception) -> str:
-    """Return a user-friendly message for a failed API call."""
+    """
+    Return a user-friendly message for a failed API call.
+
+    Args:
+        e (Exception): The exception raised during the API call.
+
+    Returns:
+        str: A user-friendly error message describing the failure.
+    """
     if isinstance(e, httpx.HTTPStatusError):
         status = e.response.status_code
-        if status in _STATUS_MESSAGES:
-            return _STATUS_MESSAGES[status]
-        if 500 <= status < 600:
-            return (
-                f"Azure Devops server error ({status}). "
-                "Please try again later."
-            )
-        return f"API request failed with status {status}."
-    
+        msg = _STATUS_MESSAGES.get(status, f"API request failed with status {status}.")
+        logger.error("HTTP %d: %s", status, e.response.text[:200])  # lazy % formatting
+        return msg
     if isinstance(e, httpx.TimeoutException):
-        return (
-            "Request timed out - The server may be "
-            "under heavy load - please try again later."
-        )
-
+        logger.warning("Request timed out")
+        return "Request timed out - please retry."
     if isinstance(e, httpx.RequestError):
-        return f"Network error while connecting to Azure DevOps: {e}"
-
-    logger.exception("Unexpected error in Azure DevOps API call")
-    return "An unexpected error occurred while processing the request."
+        logger.error("Network error: %s", e)
+        return f"Network error: {e}"
+    logger.exception("Unexpected error")
+    return "An unexpected error occurred."

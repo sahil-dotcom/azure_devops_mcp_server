@@ -36,3 +36,8 @@ coverage.xml
 ruff_cache/
 
 .github/
+.flake8
+Makefile
+.code-review-graph/
+uv.lock
+mypy.ini
